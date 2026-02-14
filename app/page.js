@@ -42,7 +42,7 @@ export default async function Home() {
             </h1>
 
             <p className="text-xl text-slate-400 font-light max-w-xl mx-auto leading-relaxed">
-              Aetheria synthesizes the world's knowledge to craft itineraries that feel genuinely human, yet powered by machine precision.
+              Aetheria synthesizes the world&apos;s knowledge to craft itineraries that feel genuinely human, yet powered by machine precision.
             </p>
           </div>
 
