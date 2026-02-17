@@ -5,10 +5,12 @@ import Image from "next/image";
 import PromptInput from "./components/PromptInput";
 import { Map, Sparkles, Clock } from "lucide-react";
 
+export const revalidate = 0;
+
 export default async function Home() {
   try {
     await connectDB();
-    const plans = await TravelPlan.find().sort({ createdAt: -1 }).limit(3);
+    const plans = await TravelPlan.find().sort({ createdAt: -1 });
 
     return (
       <div className="bg-[#030712] text-slate-200 min-h-screen relative overflow-hidden bg-mesh">
