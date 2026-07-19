@@ -9,7 +9,7 @@ export default function PromptInput() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!prompt || loading) return;
 
@@ -21,11 +21,11 @@ export default function PromptInput() {
         body: JSON.stringify({ prompt }),
       });
 
-      let data;
+      let data: { slug?: string; error?: string; details?: string };
       try {
         data = await res.json();
-      } catch (jsonError) {
-        console.error("Failed to parse JSON response:", jsonError);
+      } catch {
+        console.error("Failed to parse JSON response");
         throw new Error("The server returned an invalid response. Please try again.");
       }
 
@@ -35,8 +35,9 @@ export default function PromptInput() {
         alert(data.error || data.details || "Something went wrong");
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to generate plan";
       console.error(error);
-      alert(error.message || "Failed to generate plan");
+      alert(message);
     } finally {
       setLoading(false);
     }

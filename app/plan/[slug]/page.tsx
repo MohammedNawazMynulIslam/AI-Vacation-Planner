@@ -72,6 +72,8 @@ export default async function PlanPage(props) {
           alt={plan.destination}
           fill
           priority
+          loading="eager"
+          sizes="100vw"
           className="absolute inset-0 w-full h-full object-cover transform scale-105 opacity-40 brightness-75"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#030712]/40 to-transparent"></div>
@@ -195,6 +197,8 @@ export default async function PlanPage(props) {
                     src={day.image || plan.image}
                     alt={day.title}
                     fill
+                    loading="eager"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     className="object-cover opacity-80 group-hover:scale-110 transition-transform duration-1000 grayscale-[30%] group-hover:grayscale-0"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#020617]/80 via-transparent to-transparent"></div>

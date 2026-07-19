@@ -1,9 +1,10 @@
-import TravelPlan from "@/models/TravelPlan";
-import { connectDB } from "@/lib/db";
+
 import Link from "next/link";
 import Image from "next/image";
 import PromptInput from "./components/PromptInput";
 import { Map, Sparkles, Clock } from "lucide-react";
+import { connectDB } from "./lib/db";
+import TravelPlan from "./models/TravelPlan";
 
 export const revalidate = 0;
 
@@ -65,9 +66,11 @@ export default async function Home() {
                 <Link key={plan.slug} href={`/plan/${plan.slug}`}>
                   <div className="group relative aspect-[4/5] rounded-[2rem] overflow-hidden glass-panel hover:glow-border transition-all duration-500">
                     <Image
+                    loading="eager"
                       src={plan.image}
                       alt={plan.destination}
                       fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       className="absolute inset-0 w-full h-full object-cover opacity-60 grayscale-[20%] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
                     />
 
