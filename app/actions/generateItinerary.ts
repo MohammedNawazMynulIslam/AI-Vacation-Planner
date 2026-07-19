@@ -1,17 +1,17 @@
+// app/actions/generateItinerary.ts
 "use server";
 
 import { after } from "next/server";
 import { z } from "zod";
 import slugify from "slugify";
-import { geminiExtractModel, geminiModel } from "@/lib/gemini";
 import { connectDB } from "@/lib/db";
+import { geminiModel } from "@/lib/gemini";
+import { validateItinerary } from "@/lib/places";
+import { fetchWeatherForecast } from "@/lib/weather";
 import TravelPlan from "@/models/TravelPlan";
 import { fetchUnsplashImages } from "@/lib/unsplash";
 
 
-
-
-// ── Zod Schema: validates AI output before saving ──
 const ActivitySchema = z.object({
   time: z.string(),
   task: z.string(),
@@ -35,23 +35,14 @@ const DayPlanSchema = z.object({
 const GeminiResponseSchema = z.object({
   description: z.string().min(1),
   highlights: z
-    .array(
-      z.object({
-        title: z.string(),
-        rating: z.string(),
-      })
-    )
+    .array(z.object({ title: z.string(), rating: z.string() }))
     .length(3),
   gastronomy: z.string(),
   smartTravel: z.string(),
-  budget: z.object({
-    min: z.number(),
-    max: z.number(),
-  }),
+  budget: z.object({ min: z.number(), max: z.number() }),
   itinerary: z.array(DayPlanSchema).min(1),
 });
 
-// ── Step 1: Extract destination + days from raw prompt ──
 export async function extractTravelDetails(promptText: string) {
   try {
     const systemPrompt = `
@@ -72,8 +63,7 @@ User request: "${promptText}"
 `;
 
     const result = await geminiExtractModel.generateContent(systemPrompt);
-    const text = result.response.text();
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(result.response.text());
 
     const validated = z
       .object({
@@ -86,11 +76,8 @@ User request: "${promptText}"
     return validated;
   } catch (error) {
     console.error("Extract error:", error);
-
-    // Smart regex fallback
     const daysMatch = promptText.match(/(\d+)\s*day/i);
     const days = daysMatch ? parseInt(daysMatch[1]) : 3;
-
     const locationMatch = promptText.match(
       /(?:in|to)\s+([A-Za-z\s]+?)(?:\s+for|\s+\d+|\.$|$)/i
     );
@@ -98,20 +85,14 @@ User request: "${promptText}"
       ? locationMatch[1].trim()
       : promptText.replace(/^\d+\s*days?\s*/i, "").trim();
 
-    return {
-      destination,
-      days,
-      isTravelRelated: !!destination,
-    };
+    return { destination, days, isTravelRelated: !!destination };
   }
 }
 
-// ── Step 2: Generate + Save Itinerary ──
 export async function createItinerary(userPrompt: string) {
   try {
     await connectDB();
 
-    // Extract details
     const details = await extractTravelDetails(userPrompt);
 
     if (!details.isTravelRelated || !details.destination) {
@@ -120,7 +101,7 @@ export async function createItinerary(userPrompt: string) {
 
     const { destination, days } = details;
 
-    // Generate with Gemini JSON mode
+    // ── GENERATE AI ITINERARY ──
     const prompt = `
 Create a highly detailed, professional ${days}-day travel itinerary for ${destination}.
 
@@ -166,23 +147,28 @@ Return ONLY valid JSON in this exact format:
 `;
 
     const result = await geminiModel.generateContent(prompt);
-    const rawJson = result.response.text();
-    const parsed = JSON.parse(rawJson);
-
-    // Validate with Zod
+    const parsed = JSON.parse(result.response.text());
     const validated = GeminiResponseSchema.parse(parsed);
 
-    // Generate unique slug
+    // ── VALIDATE PLACES AGAINST GOOGLE PLACES ──
+    const { itinerary: validatedItinerary, stats } = await validateItinerary(
+      destination,
+      validated.itinerary
+    );
+
+    // ── FETCH WEATHER ──
+    const weather = await fetchWeatherForecast(destination, days);
+
+    // ── GENERATE SLUG ──
     const baseSlug = slugify(`${destination}-${days}-days`, { lower: true });
     let slug = baseSlug;
     let counter = 1;
-
     while (await TravelPlan.exists({ slug })) {
       slug = `${baseSlug}-${counter}`;
       counter++;
     }
 
-    // Save to MongoDB
+    // ── SAVE TO MONGODB ──
     const plan = await TravelPlan.create({
       destination,
       days,
@@ -192,19 +178,20 @@ Return ONLY valid JSON in this exact format:
       gastronomy: validated.gastronomy,
       smartTravel: validated.smartTravel,
       budget: validated.budget,
-      // Map imageQuery → image for each day
-      itinerary: validated.itinerary.map((day) => ({
+      itinerary: validatedItinerary.map((day: any) => ({
         day: day.day,
         title: day.title,
-        image: day.imageQuery, // stored as image in your schema
+        image: day.imageQuery,
         hotel: day.hotel,
         activities: day.activities,
         travelTips: day.travelTips,
       })),
-      image: null, // hero image fetched in background
+      image: null,
+      weather,
+      validationStatus: stats,
     });
 
-    // 🔥 next/after: fetch images AFTER responding to user
+    // ── BACKGROUND: UNSPLASH IMAGES ──
     after(async () => {
       try {
         const images = await fetchUnsplashImages({
@@ -212,10 +199,9 @@ Return ONLY valid JSON in this exact format:
           queries: validated.itinerary.map((d) => d.imageQuery),
         });
 
-        // Update hero image + day images
         await TravelPlan.findByIdAndUpdate(plan._id, {
           image: images.hero,
-          itinerary: validated.itinerary.map((day, idx) => ({
+          itinerary: validatedItinerary.map((day: any, idx: number) => ({
             day: day.day,
             title: day.title,
             image: images.days[idx] || images.hero,
@@ -224,19 +210,14 @@ Return ONLY valid JSON in this exact format:
             travelTips: day.travelTips,
           })),
         });
-
-        console.log(`[after] Images fetched for ${slug}`);
       } catch (err) {
-        console.error(`[after] Image fetch failed for ${slug}:`, err);
-        // Non-critical: plan still works without images
+        console.error(`[after] Image fetch failed:`, err);
       }
     });
 
     return { success: true, slug: plan.slug };
   } catch (error: any) {
     console.error("createItinerary error:", error);
-
-    // Return structured error for UI
     return {
       success: false,
       error: error.message || "Failed to generate itinerary",
