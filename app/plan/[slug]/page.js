@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import ShareButton from "@/components/ShareButton";
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata(props) {
+  const params = await props.params;
   await connectDB();
   const plan = await TravelPlan.findOne({ slug: params.slug });
 
@@ -32,7 +33,8 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function PlanPage({ params }) {
+export default async function PlanPage(props) {
+  const params = await props.params;
   await connectDB();
   const plan = await TravelPlan.findOne({ slug: params.slug });
 

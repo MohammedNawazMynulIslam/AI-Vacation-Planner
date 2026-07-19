@@ -2,11 +2,12 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+
 // Generate travel plan
 export async function generateTravelPlan(destination, days) {
   try {
-    // Try using gemini-1.5-flash as it might have different rate limits or be more stable
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Try using gemini-flash-latest as it might have different rate limits or be more stable
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     //     const prompt = `
     // Create a ${days}-day travel plan for ${destination}.
