@@ -13,7 +13,7 @@ interface ITravelPlan {
   description: string;
 }
 
-const TravelPlanSchema = new mongoose.Schema<ITravelPlan>(
+const TravelPlanSchema = new mongoose.Schema(
   {
     destination: String,
     days: Number,
@@ -21,13 +21,26 @@ const TravelPlanSchema = new mongoose.Schema<ITravelPlan>(
     highlights: Array,
     gastronomy: String,
     smartTravel: String,
-    budget: {
-      min: Number,
-      max: Number,
-    },
+    budget: { min: Number, max: Number },
     itinerary: Array,
     image: String,
     description: String,
+    // ── NEW FIELDS ──
+    weather: {
+      summary: String,       // "Rainy first 3 days, sunny after"
+      forecast: [{
+        date: String,        // "2026-07-20"
+        temp: Number,        // 24
+        condition: String,   // "light rain"
+        icon: String,        // "10d"
+      }]
+    },
+    validationStatus: {
+      checkedAt: Date,
+      totalActivities: Number,
+      verifiedCount: Number,
+      unverified: Array,     // [{ day, task, reason }]
+    }
   },
   { timestamps: true }
 );
