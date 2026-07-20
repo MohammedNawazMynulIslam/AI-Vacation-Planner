@@ -13,14 +13,17 @@
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.13.5",
     "lucide-react": "^0.563.0",
+    "mapbox-gl": "^3.26.0",
     "mongoose": "^9.2.1",
     "next": "16.2.10",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "react-map-gl": "^8.1.1",
     "slugify": "^1.6.9",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

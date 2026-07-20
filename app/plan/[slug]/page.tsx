@@ -9,6 +9,11 @@ import {
   MapPin, CheckCircle2, ChevronRight, Zap
 } from "lucide-react";
 import ShareButton from "@/components/ShareButton";
+import ValidationBadge from "@/components/ValidationBadge";
+import WeatherWidget from "@/components/WeatherWidget";
+import TripMap from "@/components/TripMap";
+
+// import TripMap from "@/components/TripMap";
 
 export async function generateMetadata(props) {
   const params = await props.params;
@@ -67,15 +72,17 @@ export default async function PlanPage(props) {
 
       {/* Hero Header */}
       <header className="relative w-full h-[90vh] min-h-[700px] flex items-end pb-24 px-8 lg:px-16 z-10 overflow-hidden">
-        <Image
-          src={plan.image}
-          alt={plan.destination}
-          fill
-          priority
-          loading="eager"
-          sizes="100vw"
-          className="absolute inset-0 w-full h-full object-cover transform scale-105 opacity-40 brightness-75"
-        />
+        {plan.image && (
+          <Image
+            src={plan.image}
+            alt={plan.destination}
+            fill
+            priority
+            loading="eager"
+            sizes="100vw"
+            className="absolute inset-0 w-full h-full object-cover transform scale-105 opacity-40 brightness-75"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#030712]/40 to-transparent"></div>
 
         <div className="relative max-w-5xl space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
@@ -94,6 +101,18 @@ export default async function PlanPage(props) {
           </p>
         </div>
       </header>
+
+      {/* Validation + Weather Strip */}
+<section className="relative z-10 px-8 lg:px-16 max-w-7xl mx-auto -mt-12 mb-16">
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="lg:col-span-1">
+      <ValidationBadge stats={plan.validationStatus} />
+    </div>
+    <div className="lg:col-span-2">
+      <WeatherWidget weather={plan.weather} />
+    </div>
+  </div>
+</section>
 
       {/* Meta Features Section */}
       <section className="relative z-10 py-32 px-8 lg:px-16 max-w-7xl mx-auto">
@@ -182,25 +201,36 @@ export default async function PlanPage(props) {
               <h2 className="text-5xl lg:text-7xl font-black text-white tracking-tighter">
                 Chronicle of <br />{plan.destination}
               </h2>
+
             </div>
             <div className="text-right">
               <span className="text-3xl font-black text-white/10 uppercase tracking-[0.5em]">{plan.days} Cycle</span>
             </div>
           </div>
-
+{/* Interactive Map */}
+{plan.itinerary && (
+  <div className="mb-24">
+    <TripMap
+      destination={plan.destination} 
+      itinerary={plan.itinerary} 
+    />
+  </div>
+)}
           <div className="space-y-24">
             {plan.itinerary?.map((day, index) => (
               <div key={index} className="grid grid-cols-1 lg:grid-cols-2 gap-16 group">
                 {/* Visual Anchor */}
                 <div className="relative aspect-[16/10] rounded-[2.5rem] overflow-hidden glass-panel border-white/5 shadow-2xl">
-                  <Image
-                    src={day.image || plan.image}
-                    alt={day.title}
-                    fill
-                    loading="eager"
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                    className="object-cover opacity-80 group-hover:scale-110 transition-transform duration-1000 grayscale-[30%] group-hover:grayscale-0"
-                  />
+                  {(day.image || plan.image) && (
+                    <Image
+                      src={day.image || plan.image}
+                      alt={day.title}
+                      fill
+                      loading="eager"
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      className="object-cover opacity-80 group-hover:scale-110 transition-transform duration-1000 grayscale-[30%] group-hover:grayscale-0"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-[#020617]/80 via-transparent to-transparent"></div>
                   <div className="absolute top-8 left-8 glass-panel px-6 py-3 rounded-2xl border-white/10">
                     <span className="text-3xl font-black text-emerald-400">{index + 1}</span>
