@@ -18,7 +18,7 @@ import TripMap from "@/components/TripMap";
 export async function generateMetadata(props) {
   const params = await props.params;
   await connectDB();
-  const plan = await TravelPlan.findOne({ slug: params.slug });
+  const plan = await TravelPlan.findOne({ slug: params.slug }).lean();
 
   if (!plan) {
     return {
@@ -41,9 +41,9 @@ export async function generateMetadata(props) {
 export default async function PlanPage(props) {
   const params = await props.params;
   await connectDB();
-  const plan = await TravelPlan.findOne({ slug: params.slug });
-
-  if (!plan) return notFound();
+  const doc = await TravelPlan.findOne({ slug: params.slug }).lean();
+  if (!doc) return notFound();
+  const plan = JSON.parse(JSON.stringify(doc));
 
   const budgetMin = plan.budget?.min || plan.days * 100;
   const budgetMax = plan.budget?.max || plan.days * 200;
