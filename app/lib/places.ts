@@ -2,6 +2,7 @@
 import axios from "axios";
 
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
 
 interface PlaceResult {
   name: string;
@@ -16,6 +17,22 @@ interface PlaceResult {
 
 // Simple in-memory cache (resets on deploy, good enough for MVP)
 const cache = new Map<string, PlaceResult>();
+
+export async function geocodeDestination(destination: string): Promise<{ lat: number; lng: number } | null> {
+  if (!OPENWEATHER_API_KEY) return null;
+  try {
+    const { data } = await axios.get("https://api.openweathermap.org/geo/1.0/direct", {
+      params: { q: destination, limit: 1, appid: OPENWEATHER_API_KEY },
+      timeout: 5000,
+    });
+    if (data?.length > 0) {
+      return { lat: data[0].lat, lng: data[0].lon };
+    }
+  } catch (err) {
+    console.warn("Fallback geocode failed for destination:", destination, err);
+  }
+  return null;
+}
 
 export async function verifyPlace(
   placeName: string,
@@ -71,12 +88,12 @@ export async function validateItinerary(
 ) {
   const unverified: any[] = [];
   let verifiedCount = 0;
+  let destCoords: { lat: number; lng: number } | null = null;
 
   const enrichedItinerary = await Promise.all(
     itinerary.map(async (day) => {
       const enrichedActivities = await Promise.all(
         day.activities.map(async (activity: any) => {
-          // Only validate "landmark" and "food" types, skip generic tasks
           const isVerifiable =
             activity.task.length > 3 &&
             !activity.task.toLowerCase().includes("check-in") &&
@@ -86,7 +103,11 @@ export async function validateItinerary(
             return { ...activity, placeVerified: false, placeData: null };
           }
 
-          const place = await verifyPlace(activity.task, destination);
+          let place = await verifyPlace(activity.task, destination);
+
+          if (!place && !destCoords) {
+            destCoords = await geocodeDestination(destination);
+          }
 
           if (place) {
             verifiedCount++;
@@ -99,6 +120,17 @@ export async function validateItinerary(
                 lat: place.lat,
                 lng: place.lng,
                 placeId: place.place_id,
+              },
+            };
+          } else if (destCoords) {
+            unverified.push({ day: day.day, task: activity.task });
+            return {
+              ...activity,
+              placeVerified: false,
+              placeData: {
+                lat: destCoords.lat,
+                lng: destCoords.lng,
+                address: destination,
               },
             };
           } else {

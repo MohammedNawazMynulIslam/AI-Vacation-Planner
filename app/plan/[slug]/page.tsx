@@ -11,9 +11,8 @@ import {
 import ShareButton from "@/components/ShareButton";
 import ValidationBadge from "@/components/ValidationBadge";
 import WeatherWidget from "@/components/WeatherWidget";
-import TripMap from "@/components/TripMap";
-
-// import TripMap from "@/components/TripMap";
+import TripMap from "@/components/ClientTripMap";
+import { geocodeDestination } from "@/lib/places";
 
 export async function generateMetadata(props) {
   const params = await props.params;
@@ -44,6 +43,24 @@ export default async function PlanPage(props) {
   const doc = await TravelPlan.findOne({ slug: params.slug }).lean();
   if (!doc) return notFound();
   const plan = JSON.parse(JSON.stringify(doc));
+
+  // ── Inject fallback placeData for activities missing it ──
+  const hasAnyPlaceData = plan.itinerary?.some((day: any) =>
+    day.activities?.some((a: any) => a.placeData?.lat)
+  );
+  if (plan.itinerary && !hasAnyPlaceData) {
+    const coords = await geocodeDestination(plan.destination);
+    if (coords) {
+      plan.itinerary = plan.itinerary.map((day: any) => ({
+        ...day,
+        activities: day.activities.map((a: any) => ({
+          ...a,
+          placeVerified: false,
+          placeData: a.placeData ? a.placeData : { lat: coords.lat, lng: coords.lng, address: plan.destination },
+        })),
+      }));
+    }
+  }
 
   const budgetMin = plan.budget?.min || plan.days * 100;
   const budgetMax = plan.budget?.max || plan.days * 200;

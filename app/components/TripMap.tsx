@@ -1,10 +1,55 @@
-// app/components/TripMap.tsx
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import Map, { Marker, Popup, Source, Layer } from "react-map-gl/mapbox";
-import "mapbox-gl/dist/mapbox-gl.css";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import { MapPin, Navigation, Route, RotateCcw } from "lucide-react";
+import L from "leaflet";
+
+// ── Fix Leaflet default icons in Next.js ──
+import icon from "leaflet/dist/images/marker-icon.png";
+import iconShadow from "leaflet/dist/images/marker-shadow.png";
+
+let DefaultIcon = L.icon({
+  iconUrl: icon.src,
+  shadowUrl: iconShadow.src,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// ── Custom numbered marker ──
+function createNumberedMarker(number: number, color: string) {
+  return L.divIcon({
+    className: "custom-marker",
+    html: `
+      <div style="
+        width: 32px;
+        height: 32px;
+        background: ${color};
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 12px;
+        font-weight: 900;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      ">${number}</div>
+      <div style="
+        width: 2px;
+        height: 8px;
+        background: ${color};
+        margin: -2px auto 0;
+      "></div>
+    `,
+    iconSize: [32, 42],
+    iconAnchor: [16, 42],
+    popupAnchor: [0, -42],
+  });
+}
 
 interface Activity {
   time: string;
@@ -33,8 +78,6 @@ interface TripMapProps {
   itinerary: DayPlan[];
 }
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
-
 const COLORS = [
   "#10b981", // emerald
   "#6366f1", // indigo
@@ -44,16 +87,18 @@ const COLORS = [
   "#8b5cf6", // violet
 ];
 
+// ── Map recenter helper ──
+function MapRecenter({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  map.setView([lat, lng], 14);
+  return null;
+}
+
 export default function TripMap({ destination, itinerary }: TripMapProps) {
   const [selectedDay, setSelectedDay] = useState(0);
-  const [selectedMarker, setSelectedMarker] = useState<{
-    activity: Activity;
-    dayIndex: number;
-    actIndex: number;
-  } | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [optimizedOrder, setOptimizedOrder] = useState<number[] | null>(null);
 
-  // Filter activities that have real coordinates
   const dayActivities = useMemo(() => {
     const day = itinerary[selectedDay];
     if (!day) return [];
@@ -62,23 +107,20 @@ export default function TripMap({ destination, itinerary }: TripMapProps) {
       .filter((a) => a.placeData?.lat && a.placeData?.lng);
   }, [itinerary, selectedDay]);
 
-  // Calculate route line coordinates
-  const routeCoordinates = useMemo(() => {
+  const routePositions = useMemo(() => {
     const order = optimizedOrder ?? dayActivities.map((_, i) => i);
     return order
       .map((idx) => dayActivities[idx])
       .filter(Boolean)
-      .map((a) => [a.placeData!.lng, a.placeData!.lat]);
+      .map((a) => [a.placeData!.lat, a.placeData!.lng] as [number, number]);
   }, [dayActivities, optimizedOrder]);
 
-  // Greedy nearest-neighbor TSP solver
   const optimizeRoute = useCallback(() => {
     if (dayActivities.length < 3) return;
 
     const unvisited = new Set(dayActivities.map((_, i) => i));
     const order: number[] = [0];
     unvisited.delete(0);
-
     let current = 0;
 
     while (unvisited.size > 0) {
@@ -110,9 +152,11 @@ export default function TripMap({ destination, itinerary }: TripMapProps) {
     setOptimizedOrder(order);
   }, [dayActivities]);
 
-  const resetRoute = () => setOptimizedOrder(null);
+  const resetRoute = () => {
+    setOptimizedOrder(null);
+    setSelectedActivity(null);
+  };
 
-  // Map center on first activity of selected day
   const center = useMemo(() => {
     if (dayActivities.length > 0) {
       return {
@@ -123,16 +167,19 @@ export default function TripMap({ destination, itinerary }: TripMapProps) {
     return { lat: 48.8566, lng: 2.3522 }; // fallback Paris
   }, [dayActivities]);
 
-  if (!MAPBOX_TOKEN) {
+  const dayColor = COLORS[selectedDay % COLORS.length];
+
+  if (dayActivities.length === 0) {
     return (
-      <div className="glass-panel rounded-3xl p-8 text-center text-slate-400">
-        <MapPin className="w-8 h-8 mx-auto mb-3 text-slate-600" />
-        <p>Mapbox token not configured. Add NEXT_PUBLIC_MAPBOX_TOKEN to your .env</p>
+      <div className="glass-panel rounded-[2.5rem] p-12 text-center text-slate-400 border-white/5">
+        <MapPin className="w-10 h-10 mx-auto mb-4 text-slate-600" />
+        <p className="text-lg font-light mb-2">No verified locations for this day</p>
+        <p className="text-sm text-slate-600">
+          Places couldn't be cross-referenced with Google Maps for mapping.
+        </p>
       </div>
     );
   }
-
-  const dayColor = COLORS[selectedDay % COLORS.length];
 
   return (
     <div className="glass-panel rounded-[2.5rem] border-white/5 overflow-hidden">
@@ -150,7 +197,7 @@ export default function TripMap({ destination, itinerary }: TripMapProps) {
               onClick={() => {
                 setSelectedDay(i);
                 setOptimizedOrder(null);
-                setSelectedMarker(null);
+                setSelectedActivity(null);
               }}
               className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shrink-0 ${
                 selectedDay === i
@@ -190,46 +237,36 @@ export default function TripMap({ destination, itinerary }: TripMapProps) {
         </div>
       </div>
 
-      {/* Map */}
-      <div className="relative h-[500px] lg:h-[600px]">
-        <Map
-          mapboxAccessToken={MAPBOX_TOKEN}
-          initialViewState={{
-            latitude: center.lat,
-            longitude: center.lng,
-            zoom: 13,
-          }}
-          latitude={center.lat}
-          longitude={center.lng}
-          style={{ width: "100%", height: "100%" }}
-          mapStyle="mapbox://styles/mapbox/dark-v11"
-          attributionControl={false}
+      {/* Leaflet Map */}
+      <div className="relative h-[500px] lg:h-[600px] bg-[#0f172a]">
+        <MapContainer
+          center={[center.lat, center.lng]}
+          zoom={14}
+          scrollWheelZoom={true}
+          style={{ width: "100%", height: "100%", background: "#0f172a" }}
+          zoomControl={false}
         >
+          <MapRecenter lat={center.lat} lng={center.lng} />
+
+          {/* Dark theme tiles — FREE, no API key */}
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            subdomains="abcd"
+            maxZoom={20}
+          />
+
           {/* Route Line */}
-          {routeCoordinates.length > 1 && (
-            <Source
-              id="route"
-              type="geojson"
-              data={{
-                type: "Feature",
-                properties: {},
-                geometry: {
-                  type: "LineString",
-                  coordinates: routeCoordinates,
-                },
+          {routePositions.length > 1 && (
+            <Polyline
+              positions={routePositions}
+              pathOptions={{
+                color: dayColor,
+                weight: 3,
+                opacity: 0.8,
+                dashArray: optimizedOrder ? undefined : "6, 8",
               }}
-            >
-              <Layer
-                id="route-line"
-                type="line"
-                paint={{
-                  "line-color": dayColor,
-                  "line-width": 3,
-                  "line-opacity": 0.8,
-                  "line-dasharray": optimizedOrder ? [1, 0] : [2, 1],
-                }}
-              />
-            </Source>
+            />
           )}
 
           {/* Activity Markers */}
@@ -238,86 +275,47 @@ export default function TripMap({ destination, itinerary }: TripMapProps) {
               const activity = dayActivities[idx];
               if (!activity?.placeData) return null;
 
-              const isSelected =
-                selectedMarker?.activity.task === activity.task;
-
               return (
                 <Marker
                   key={`${selectedDay}-${idx}`}
-                  latitude={activity.placeData.lat}
-                  longitude={activity.placeData.lng}
-                  anchor="bottom"
-                  onClick={(e) => {
-                    e.originalEvent.stopPropagation();
-                    setSelectedMarker({
-                      activity,
-                      dayIndex: selectedDay,
-                      actIndex: idx,
-                    });
+                  position={[activity.placeData.lat, activity.placeData.lng]}
+                  icon={createNumberedMarker(displayIdx + 1, dayColor)}
+                  eventHandlers={{
+                    click: () => setSelectedActivity(activity),
                   }}
                 >
-                  <div
-                    className={`flex flex-col items-center cursor-pointer transition-transform ${
-                      isSelected ? "scale-125" : "hover:scale-110"
-                    }`}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-lg border-2"
-                      style={{
-                        backgroundColor: dayColor,
-                        borderColor: "rgba(255,255,255,0.2)",
-                      }}
-                    >
-                      {displayIdx + 1}
+                  <Popup className="custom-popup">
+                    <div className="min-w-[200px]">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="w-4 h-4 text-emerald-400" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                          Stop {displayIdx + 1}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-white mb-1 text-sm">
+                        {activity.task}
+                      </h4>
+                      <p className="text-xs text-slate-400 mb-2 leading-relaxed">
+                        {activity.description}
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span>{activity.time}</span>
+                        {activity.placeData?.rating && (
+                          <span className="text-amber-400 font-bold">
+                            ★ {activity.placeData.rating}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div
-                      className="w-0.5 h-3"
-                      style={{ backgroundColor: dayColor }}
-                    />
-                  </div>
+                  </Popup>
                 </Marker>
               );
             }
           )}
-
-          {/* Popup */}
-          {selectedMarker && (
-            <Popup
-              latitude={selectedMarker.activity.placeData!.lat}
-              longitude={selectedMarker.activity.placeData!.lng}
-              anchor="top"
-              onClose={() => setSelectedMarker(null)}
-              closeButton={false}
-              className="z-50"
-            >
-              <div className="bg-[#0f172a] border border-white/10 rounded-xl p-4 min-w-[220px] text-slate-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="w-4 h-4 text-emerald-400" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                    Stop {selectedMarker.actIndex + 1}
-                  </span>
-                </div>
-                <h4 className="font-bold text-white mb-1">
-                  {selectedMarker.activity.task}
-                </h4>
-                <p className="text-xs text-slate-400 mb-2">
-                  {selectedMarker.activity.description}
-                </p>
-                <div className="flex items-center justify-between text-[10px] text-slate-500">
-                  <span>{selectedMarker.activity.time}</span>
-                  {selectedMarker.activity.placeData?.rating && (
-                    <span className="text-amber-400">
-                      ★ {selectedMarker.activity.placeData.rating}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </Popup>
-          )}
-        </Map>
+        </MapContainer>
 
         {/* Stats Overlay */}
-        <div className="absolute bottom-6 left-6 glass-panel px-4 py-3 rounded-2xl border-white/10">
+        <div className="absolute bottom-6 left-6 glass-panel px-4 py-3 rounded-2xl border-white/10 z-[400]">
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-2">
               <div
@@ -341,10 +339,8 @@ export default function TripMap({ destination, itinerary }: TripMapProps) {
   );
 }
 
-// ── Helpers ──
-
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // km
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
