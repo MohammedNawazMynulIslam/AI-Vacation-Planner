@@ -13,6 +13,7 @@ import ValidationBadge from "@/components/ValidationBadge";
 import WeatherWidget from "@/components/WeatherWidget";
 import TripMap from "@/components/ClientTripMap";
 import { geocodeDestination } from "@/lib/places";
+import ExportButton from "@/components/ExportButton";
 
 export async function generateMetadata(props) {
   const params = await props.params;
@@ -82,9 +83,12 @@ export default async function PlanPage(props) {
           </div>
           <span className="text-xl font-bold tracking-tight text-white glow-text italic">Aetheria</span>
         </Link>
-        <div className="glass-panel px-1 py-1 rounded-full border-white/5 flex items-center gap-2">
-          <ShareButton />
-        </div>
+        // In your PlanPage, find this section:
+<div className="glass-panel px-1 py-1 rounded-full border-white/5 flex items-center gap-2">
+  <ExportButton plan={plan} />
+  <div className="w-px h-6 bg-white/10" />
+  <ShareButton />
+</div>
       </nav>
 
       {/* Hero Header */}
