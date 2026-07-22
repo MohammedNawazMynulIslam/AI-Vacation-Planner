@@ -474,7 +474,7 @@ function DayPage({ day, dayIndex, totalDays }: { day: PDFDayPlan; dayIndex: numb
       {day.hotel && (
         <View style={styles.hotelBadge}>
           <Text style={styles.hotelText}>
-            🏨 {day.hotel.name} · {day.hotel.starRating}
+           {day.hotel.name} · {day.hotel.starRating}
           </Text>
         </View>
       )}
@@ -492,7 +492,7 @@ function DayPage({ day, dayIndex, totalDays }: { day: PDFDayPlan; dayIndex: numb
 
       {day.travelTips && day.travelTips.length > 0 && (
         <View style={styles.tipsBox}>
-          <Text style={styles.tipsTitle}>💡 Contextual Advice</Text>
+          <Text style={styles.tipsTitle}>Contextual Advice</Text>
           {day.travelTips.map((tip, i) => (
             <Text key={i} style={styles.tipsText}>• {tip}</Text>
           ))}

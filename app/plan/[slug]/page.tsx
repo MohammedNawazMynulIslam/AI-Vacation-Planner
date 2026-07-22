@@ -83,7 +83,7 @@ export default async function PlanPage(props) {
           </div>
           <span className="text-xl font-bold tracking-tight text-white glow-text italic">Aetheria</span>
         </Link>
-        // In your PlanPage, find this section:
+      
 <div className="glass-panel px-1 py-1 rounded-full border-white/5 flex items-center gap-2">
   <ExportButton plan={plan} />
   <div className="w-px h-6 bg-white/10" />
