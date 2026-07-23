@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   timelineDot: {
     position: "absolute",
-    left: -27,
+    left: -26,
     top: 4,
     width: 10,
     height: 10,
