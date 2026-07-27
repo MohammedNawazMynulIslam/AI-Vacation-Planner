@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import slugify from "slugify";
 import { connectDB } from "@/lib/db";
-import { geminiModel } from "@/lib/gemini";
+import { geminiExtractModel, geminiModel } from "@/lib/gemini";
 import { validateItinerary } from "@/lib/places";
 import { fetchWeatherForecast } from "@/lib/weather";
 import TravelPlan from "@/models/TravelPlan";

@@ -9,8 +9,23 @@ interface ITravelPlan {
   smartTravel: string;
   budget: { min: number; max: number };
   itinerary: any[];
-  image: string;
+  image: string | null;
   description: string;
+  weather: {
+    summary: string;
+    forecast: Array<{
+      date: string;
+      temp: number;
+      condition: string;
+      icon: string;
+    }>;
+  } | null;
+  validationStatus: {
+    checkedAt: Date;
+    totalActivities: number;
+    verifiedCount: number;
+    unverified: Array<{ day: number; task: string }>;
+  } | null;
 }
 
 const TravelPlanSchema = new mongoose.Schema(
